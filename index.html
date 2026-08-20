@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Montopan 3D Demo Ev V4.5</title>
+<title>Montopan 3D Demo Ev V4.6</title>
 <style>
 *{box-sizing:border-box;}
 html, body{width:100%;height:100%;margin:0;overflow:hidden;font-family:"Segoe UI", Arial, sans-serif;background:#eef1f4;color:#27313a;}
@@ -114,7 +114,7 @@ input[type="file"]{display:none;}
                     <span class="section-number">4</span> Çalışma Bilgisi
                 </div>
                 <div class="info-box">
-                    Model otomatik olarak merkeze hizalandı. Cephe seçip panel uygulamaya hazırsınız.
+                    <strong>3D Görünüm</strong> butonuna basarak evi dilediğiniz gibi döndürebilirsiniz.
                 </div>
             </section>
         </aside>
@@ -172,7 +172,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = .065;
 controls.enablePan = false;
-controls.enableRotate = false;
+controls.enableRotate = false; // Başlangıçta kilitli, 3D Görünüm ile açılacak
 controls.minDistance = 4;
 controls.maxDistance = 25;
 controls.minPolarAngle = THREE.MathUtils.degToRad(20);
@@ -205,7 +205,7 @@ const house = new THREE.Group();
 house.name = "MontopanDemoHouse";
 scene.add(house);
 
-// MTL ve OBJ Yükleme + Otomatik Ölçekleme ve Merkezleme
+// MTL ve OBJ Yükleme
 const mtlLoader = new MTLLoader();
 mtlLoader.load('demoev.mtl', function (materials) {
     materials.preload();
@@ -215,7 +215,6 @@ mtlLoader.load('demoev.mtl', function (materials) {
     objLoader.load(
         'demoev.obj',
         function (object) {
-            // Modeli otomatik ortala ve ölçeklendir
             const box = new THREE.Box3().setFromObject(object);
             const size = new THREE.Vector3();
             box.getSize(size);
@@ -226,7 +225,7 @@ mtlLoader.load('demoev.mtl', function (materials) {
             const center = new THREE.Vector3();
             box.getCenter(center);
             object.position.x = -center.x * scale;
-            object.position.y = (-center.y * scale) + 1.5; // Zemine oturt
+            object.position.y = (-center.y * scale) + 1.5;
             object.position.z = -center.z * scale;
 
             object.traverse(function (child) {
@@ -245,6 +244,69 @@ mtlLoader.load('demoev.mtl', function (materials) {
     );
 }, undefined, function (error) {
     console.error('MTL yükleme hatası:', error);
+});
+
+// --- BUTON VE ETKİLEŞİM YÖNETİMİ ---
+const frontBtn = document.getElementById('frontBtn');
+const rightBtn = document.getElementById('rightBtn');
+const backBtn = document.getElementById('backBtn');
+const leftBtn = document.getElementById('leftBtn');
+const viewLabel = document.getElementById('view-label');
+
+function setActiveFacade(btn, labelText, targetPos) {
+    document.querySelectorAll('.facade-button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    viewLabel.innerText = labelText;
+    
+    camera.position.set(targetPos.x, targetPos.y, targetPos.z);
+    controls.target.set(0, 1.5, 0);
+    controls.update();
+}
+
+frontBtn.addEventListener('click', () => setActiveFacade(frontBtn, 'Ön Cephe', {x: 0, y: 5, z: 12}));
+rightBtn.addEventListener('click', () => setActiveFacade(rightBtn, 'Sağ Cephe', {x: 12, y: 5, z: 0}));
+backBtn.addEventListener('click', () => setActiveFacade(backBtn, 'Arka Cephe', {x: 0, y: 5, z: -12}));
+leftBtn.addEventListener('click', () => setActiveFacade(leftBtn, 'Sol Cephe', {x: -12, y: 5, z: 0}));
+
+document.getElementById('homeBtn').addEventListener('click', () => {
+    camera.position.set(10, 5, 12);
+    controls.target.set(0, 1.5, 0);
+    controls.update();
+});
+
+let isFreeRotate = false;
+document.getElementById('view3DBtn').addEventListener('click', function() {
+    isFreeRotate = !isFreeRotate;
+    controls.enableRotate = isFreeRotate;
+    controls.enablePan = isFreeRotate;
+    this.style.background = isFreeRotate ? '#38a169' : '#148dcc';
+    this.innerText = isFreeRotate ? 'Serbest Mod Açık' : '3D Görünüm';
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+    location.reload();
+});
+
+const scaleSlider = document.getElementById('scaleSlider');
+const scaleValue = document.getElementById('scaleValue');
+scaleSlider.addEventListener('input', (e) => {
+    scaleValue.innerText = e.target.value + 'px';
+});
+
+const panelInput = document.getElementById('panelInput');
+const fileName = document.getElementById('fileName');
+const panelPreview = document.getElementById('panelPreview');
+
+panelInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        fileName.innerText = file.name;
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            panelPreview.src = event.target.result;
+        }
+        reader.readAsDataURL(file);
+    }
 });
 
 // Boyutlandırma
