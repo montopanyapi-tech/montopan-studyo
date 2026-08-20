@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Montopan 3D Demo Ev V4.7</title>
+<title>Montopan 3D Demo Ev V4.8</title>
 <style>
 *{box-sizing:border-box;}
 html, body{width:100%;height:100%;margin:0;overflow:hidden;font-family:"Segoe UI", Arial, sans-serif;background:#eef1f4;color:#27313a;}
@@ -28,8 +28,14 @@ html, body{width:100%;height:100%;margin:0;overflow:hidden;font-family:"Segoe UI
 .facade-button{height:39px;border:1px solid #d3d9de;background:#ffffff;color:#48545e;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;transition:background .15s, border-color .15s, color .15s;}
 .facade-button:hover{border-color:#82bedd;background:#f2f9fd;color:#147db6;}
 .facade-button.active{border-color:#1592d0;background:#e9f6fc;color:#0875ad;box-shadow:inset 3px 0 0 #1592d0;}
-.panel-upload{width:100%;height:42px;display:flex;align-items:center;justify-content:center;border:1px dashed #9ca9b2;border-radius:4px;background:#ffffff;color:#59656e;cursor:pointer;font-size:11px;font-weight:600;transition:.15s;}
+
+/* Panel Seç ve Temizle Butonları Yan Yana */
+.panel-btn-group{display:flex;gap:6px;}
+.panel-upload{flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:1px dashed #9ca9b2;border-radius:4px;background:#ffffff;color:#59656e;cursor:pointer;font-size:11px;font-weight:600;transition:.15s;}
 .panel-upload:hover{border-color:#1592d0;background:#f1f9fd;color:#137fb5;}
+.panel-clear{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1px solid #e0a9a4;border-radius:4px;background:#fff5f5;color:#c0392b;cursor:pointer;font-size:13px;font-weight:700;transition:.15s;}
+.panel-clear:hover{background:#fae1e0;border-color:#c0392b;}
+
 input[type="file"]{display:none;}
 .file-info{margin-top:8px;padding:7px 8px;background:#eef2f5;border-radius:4px;font-size:10px;color:#7b858d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .slider-row{display:flex;align-items:center;gap:8px;}
@@ -91,7 +97,10 @@ input[type="file"]{display:none;}
                 <div class="section-title">
                     <span class="section-number">2</span> Panel Uygulama
                 </div>
-                <label for="panelInput" class="panel-upload">+ Panel Seç</label>
+                <div class="panel-btn-group">
+                    <label for="panelInput" class="panel-upload">+ Panel Seç</label>
+                    <button class="panel-clear" id="clearPanelBtn" title="Paneli Temizle">✕</button>
+                </div>
                 <input type="file" id="panelInput" accept="image/*">
                 <div class="file-info" id="fileName">Henüz panel seçilmedi</div>
                 <div class="panel-preview">
@@ -114,7 +123,7 @@ input[type="file"]{display:none;}
                     <span class="section-number">4</span> Çalışma Bilgisi
                 </div>
                 <div class="info-box">
-                    Fare ile sürükleyerek evi dilediğiniz gibi döndürebilirsiniz.
+                    Yanındaki kırmızı <strong>✕</strong> butonuna basarak seçilen paneli anında silebilirsiniz.
                 </div>
             </section>
         </aside>
@@ -148,15 +157,12 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 
-// Sahne
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xe9edef);
 
-// Kamera
 const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 1000);
 camera.position.set(10, 5, 12);
 
-// Renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -166,7 +172,6 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 document.getElementById("viewer").appendChild(renderer.domElement);
 
-// Orbit Controls (Doğrudan Serbest Döndürme Açık)
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = .065;
@@ -179,7 +184,6 @@ controls.maxPolarAngle = THREE.MathUtils.degToRad(85);
 controls.target.set(0, 1.5, 0);
 controls.update();
 
-// Işıklar
 const hemi = new THREE.HemisphereLight(0xffffff, 0x667788, 2.3);
 scene.add(hemi);
 
@@ -190,7 +194,6 @@ sun.shadow.mapSize.width = 2048;
 sun.shadow.mapSize.height = 2048;
 scene.add(sun);
 
-// Zemin
 const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(70, 70),
     new THREE.MeshStandardMaterial({ color: 0xd2d8d4, roughness: 1 })
@@ -199,12 +202,13 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// Ana Ev Grubu
 const house = new THREE.Group();
 house.name = "MontopanDemoHouse";
 scene.add(house);
 
-// MTL ve OBJ Yükleme
+// Orijinal materyalleri saklamak için değişken
+let originalMaterials = new Map();
+
 const mtlLoader = new MTLLoader();
 mtlLoader.load('demoev.mtl', function (materials) {
     materials.preload();
@@ -231,6 +235,8 @@ mtlLoader.load('demoev.mtl', function (materials) {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
+                    // Her parçanın orijinal materyalini hafızaya alalım
+                    originalMaterials.set(child.uuid, child.material.clone());
                 }
             });
             house.add(object);
@@ -287,6 +293,7 @@ const panelInput = document.getElementById('panelInput');
 const fileName = document.getElementById('fileName');
 const panelPreview = document.getElementById('panelPreview');
 
+// Panel Seçme İşlemi
 panelInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -295,12 +302,11 @@ panelInput.addEventListener('change', (e) => {
         reader.onload = function(event) {
             panelPreview.src = event.target.result;
             
-            // Seçilen paneli modelin üzerindeki materyallere uygulama mantığı buraya eklenecek
             const textureLoader = new THREE.TextureLoader();
             textureLoader.load(event.target.result, function(texture) {
                 texture.wrapS = THREE.RepeatWrapping;
                 texture.wrapT = THREE.RepeatWrapping;
-                texture.repeat.set(4, 4); // Panel tekrar sayısı
+                texture.repeat.set(4, 4);
                 
                 house.traverse(function(child) {
                     if (child.isMesh) {
@@ -312,6 +318,21 @@ panelInput.addEventListener('change', (e) => {
         }
         reader.readAsDataURL(file);
     }
+});
+
+// Kırmızı [ X ] Butonu ile Paneli Temizleme İşlemi
+document.getElementById('clearPanelBtn').addEventListener('click', () => {
+    panelPreview.src = "";
+    fileName.innerText = "Henüz panel seçilmedi";
+    panelInput.value = "";
+
+    // Evi orijinal MTL renklerine / kaplamalarına geri döndür
+    house.traverse(function(child) {
+        if (child.isMesh && originalMaterials.has(child.uuid)) {
+            child.material = originalMaterials.get(child.uuid).clone();
+            child.material.needsUpdate = true;
+        }
+    });
 });
 
 function resizeViewer() {
