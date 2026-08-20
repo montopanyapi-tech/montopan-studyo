@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Montopan 3D Demo Ev V4.6</title>
+<title>Montopan 3D Demo Ev V4.7</title>
 <style>
 *{box-sizing:border-box;}
 html, body{width:100%;height:100%;margin:0;overflow:hidden;font-family:"Segoe UI", Arial, sans-serif;background:#eef1f4;color:#27313a;}
@@ -114,7 +114,7 @@ input[type="file"]{display:none;}
                     <span class="section-number">4</span> Çalışma Bilgisi
                 </div>
                 <div class="info-box">
-                    <strong>3D Görünüm</strong> butonuna basarak evi dilediğiniz gibi döndürebilirsiniz.
+                    Fare ile sürükleyerek evi dilediğiniz gibi döndürebilirsiniz.
                 </div>
             </section>
         </aside>
@@ -126,7 +126,6 @@ input[type="file"]{display:none;}
 
             <div id="bottom-toolbar">
                 <button class="bottom-button" id="homeBtn">Başlangıç</button>
-                <button class="bottom-button primary" id="view3DBtn">3D Görünüm</button>
                 <button class="bottom-button" id="saveBtn">PNG Kaydet</button>
                 <button class="bottom-button danger" id="resetBtn">Sıfırla</button>
             </div>
@@ -167,12 +166,12 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 document.getElementById("viewer").appendChild(renderer.domElement);
 
-// Orbit Controls
+// Orbit Controls (Doğrudan Serbest Döndürme Açık)
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = .065;
-controls.enablePan = false;
-controls.enableRotate = false; // Başlangıçta kilitli, 3D Görünüm ile açılacak
+controls.enablePan = true;
+controls.enableRotate = true; 
 controls.minDistance = 4;
 controls.maxDistance = 25;
 controls.minPolarAngle = THREE.MathUtils.degToRad(20);
@@ -246,7 +245,7 @@ mtlLoader.load('demoev.mtl', function (materials) {
     console.error('MTL yükleme hatası:', error);
 });
 
-// --- BUTON VE ETKİLEŞİM YÖNETİMİ ---
+// Buton Yönetimi
 const frontBtn = document.getElementById('frontBtn');
 const rightBtn = document.getElementById('rightBtn');
 const backBtn = document.getElementById('backBtn');
@@ -274,15 +273,6 @@ document.getElementById('homeBtn').addEventListener('click', () => {
     controls.update();
 });
 
-let isFreeRotate = false;
-document.getElementById('view3DBtn').addEventListener('click', function() {
-    isFreeRotate = !isFreeRotate;
-    controls.enableRotate = isFreeRotate;
-    controls.enablePan = isFreeRotate;
-    this.style.background = isFreeRotate ? '#38a169' : '#148dcc';
-    this.innerText = isFreeRotate ? 'Serbest Mod Açık' : '3D Görünüm';
-});
-
 document.getElementById('resetBtn').addEventListener('click', () => {
     location.reload();
 });
@@ -304,12 +294,26 @@ panelInput.addEventListener('change', (e) => {
         const reader = new FileReader();
         reader.onload = function(event) {
             panelPreview.src = event.target.result;
+            
+            // Seçilen paneli modelin üzerindeki materyallere uygulama mantığı buraya eklenecek
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load(event.target.result, function(texture) {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(4, 4); // Panel tekrar sayısı
+                
+                house.traverse(function(child) {
+                    if (child.isMesh) {
+                        child.material.map = texture;
+                        child.material.needsUpdate = true;
+                    }
+                });
+            });
         }
         reader.readAsDataURL(file);
     }
 });
 
-// Boyutlandırma
 function resizeViewer() {
     const area = document.getElementById('viewer-area');
     camera.aspect = area.clientWidth / area.clientHeight;
@@ -319,7 +323,6 @@ function resizeViewer() {
 window.addEventListener('resize', resizeViewer);
 resizeViewer();
 
-// Animasyon Döngüsü
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
